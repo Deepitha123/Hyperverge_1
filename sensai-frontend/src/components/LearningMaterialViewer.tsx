@@ -215,13 +215,18 @@ export default function LearningMaterialViewer({
             setChatHistory(filteredChatHistory);
 
             // Call handleChatSubmit with the filtered history
-            handleChatSubmit(messageType, messageContent, filteredChatHistory);
+            handleChatSubmit(messageType, 'standard', messageContent, filteredChatHistory);
         }
     };
 
     // Handle chat submit
-    const handleChatSubmit = async (responseType: 'text' | 'code' = 'text', currentResponse?: string, currentChatHistory?: ChatMessage[]) => {
-        // Use currentResponse if provided (for retry), otherwise use currentAnswer
+    const handleChatSubmit = async (
+        responseType: 'text' | 'code' = 'text', 
+        explanationStyle: string = 'standard',
+        currentResponse?: string, 
+        currentChatHistory?: ChatMessage[]
+    ) => {
+        // Use currentResponse if provided (for retry/regeneration), otherwise use currentAnswer
         const messageContent = currentResponse || currentAnswer;
 
         if (!messageContent.trim() || !taskId) return;
@@ -262,11 +267,12 @@ export default function LearningMaterialViewer({
             const requestBody = {
                 user_response: responseContent,
                 response_type: 'text',
-                task_id: parseInt(taskId),
+                task_id: parseInt(String(taskId)),
                 chat_history: formattedChatHistory,
                 task_type: 'learning_material',
-                user_id: userId,
-                user_email: user?.email,
+                user_id: parseInt(String(userId || '0')),
+                user_email: user?.email || '',
+                explanation_style: explanationStyle
             };
 
             let receivedAnyResponse = false;

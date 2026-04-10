@@ -714,9 +714,10 @@ class AIChatRequest(BaseModel):
     chat_history: Optional[List[Dict]] = None
     question_id: Optional[int] = None
     user_id: int
-    user_email: str
+    user_email: Optional[str] = None
     task_id: int
     response_type: Optional[ChatResponseType] = None
+    explanation_style: Optional[str] = "standard"
 
 
 class MarkTaskCompletedRequest(BaseModel):

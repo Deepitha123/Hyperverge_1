@@ -11,7 +11,8 @@ class ConvertChatRequest(BaseModel):
     learner_id: int
     course_id: Optional[int] = None
     module_id: Optional[int] = None
-    task_id: Optional[int] = None # To fetch specific chat history
+    task_id: Optional[int] = None  # To fetch specific chat history if history not provided
+    chat_history: Optional[List[dict]] = None
 
 @router.post("/convert")
 async def convert_chat_to_knowledge(request: ConvertChatRequest):
@@ -19,12 +20,14 @@ async def convert_chat_to_knowledge(request: ConvertChatRequest):
     Endpoint to trigger the conversion of a chat session into a structured knowledge entry.
     """
     try:
-        # Fetch chat history for this user and task
-        # Note: In our current implementation, get_chat_history_from_db usually takes task_id and learner_id
-        if not request.task_id:
-            raise HTTPException(status_code=400, detail="task_id is required to find chat history")
-            
-        chat_history = await get_task_chat_history_for_user(request.task_id, request.learner_id)
+        # Use provided chat history or fetch it for this user and task
+        chat_history = request.chat_history
+        
+        if not chat_history:
+            if not request.task_id:
+                raise HTTPException(status_code=400, detail="task_id or chat_history is required")
+                
+            chat_history = await get_task_chat_history_for_user(request.task_id, request.learner_id)
         
         if not chat_history:
             raise HTTPException(status_code=404, detail="No chat history found to convert")
@@ -33,15 +36,18 @@ async def convert_chat_to_knowledge(request: ConvertChatRequest):
         knowledge_entry = await summarize_chat_to_knowledge(chat_history)
         
         # Format the content into a beautiful note
+        takeaways_formatted = "".join([f"- {item}\n" for item in knowledge_entry.takeaways])
+        mistakes_formatted = "".join([f"- {item}\n" for item in knowledge_entry.mistakes_to_avoid])
+        
         formatted_content = f"""
 ## Summary
 {knowledge_entry.explanation}
 
 ### Key Takeaways
-{"".join([f"- {item}\n" for item in knowledge_entry.takeaways])}
+{takeaways_formatted}
 
 ### Pitfalls & Mistakes to Avoid
-{"".join([f"- {item}\n" for item in knowledge_entry.mistakes_to_avoid])}
+{mistakes_formatted}
         """
 
         # Save to DB
@@ -61,6 +67,8 @@ async def convert_chat_to_knowledge(request: ConvertChatRequest):
             "title": knowledge_entry.title,
             "message": "Chat converted to personal knowledge successfully!"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error converting chat: {e}")
         raise HTTPException(status_code=500, detail=str(e))

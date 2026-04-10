@@ -36,7 +36,7 @@ interface ChatViewProps {
     isSubmitting: boolean;
     currentAnswer: string;
     handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-    handleSubmitAnswer: (responseType?: 'text' | 'code') => void;
+    handleSubmitAnswer: (responseType?: 'text' | 'code', explanationStyle?: string, customContent?: string) => void;
     handleAudioSubmit: (audioBlob: Blob) => void;
     handleViewScorecard: (scorecard: ScorecardItem[]) => void;
     viewOnly?: boolean;
@@ -97,6 +97,26 @@ const ChatView = forwardRef<ChatViewHandle, ChatViewProps>(({
     const [knowledgeAdded, setKnowledgeAdded] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+    const isExamMode = currentQuestionConfig?.responseType === 'exam';
+    const canPersonalize = taskType === 'learning_material' || !isExamMode;
+
+    const handleRegenerate = (style: string) => {
+        if (isAiResponding || currentChatHistory.length < 1) return;
+
+        // Find the last student message to re-issue the query
+        const lastUserMsg = [...currentChatHistory].reverse().find(m => m.sender === 'user');
+        const queryToReIssue = lastUserMsg ? lastUserMsg.content : "Please re-explain that.";
+
+        // We don't need to manually set currentAnswer here because we'll pass the content 
+        // directly through the updated handleSubmitAnswer if possible, 
+        // but the current structure of sensitized handleChatSubmit/handleSubmitAnswer 
+        // usually pulls from the local 'currentAnswer' state or a ref.
+        // To keep it simple, we'll assume the parent submission function will be updated.
+        
+        // Re-submit with the style preference and the original query
+        handleSubmitAnswer('text', style, queryToReIssue);
+    };
+
     // Add ref for CodeEditorView
     const codeEditorRef = useRef<CodeEditorViewHandle>(null);
 
@@ -147,11 +167,20 @@ const ChatView = forwardRef<ChatViewHandle, ChatViewProps>(({
         if (!userId || currentChatHistory.length === 0 || isConverting) return;
 
         setIsConverting(true);
+        if (!userId || currentChatHistory.length === 0) {
+            setToastData({
+                title: 'Nothing to convert',
+                description: 'Start a conversation before converting to knowledge.',
+                emoji: '⚠️'
+            });
+            setIsConverting(false);
+            return;
+        }
+
         try {
             const history = currentChatHistory.map(msg => ({
                 role: msg.sender === 'user' ? 'user' : 'assistant',
-                content: msg.content,
-                timestamp: msg.timestamp.toISOString()
+                content: msg.content
             }));
 
             const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/knowledge/convert`, {
@@ -160,15 +189,18 @@ const ChatView = forwardRef<ChatViewHandle, ChatViewProps>(({
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    learner_id: parseInt(userId),
+                    learner_id: parseInt(String(userId)),
                     chat_history: history,
-                    course_id: courseId ? parseInt(courseId) : undefined,
-                    module_id: moduleId ? parseInt(moduleId) : undefined,
-                    task_id: taskId ? parseInt(taskId) : undefined
+                    course_id: courseId ? parseInt(String(courseId)) : undefined,
+                    module_id: moduleId ? parseInt(String(moduleId)) : undefined,
+                    task_id: taskId ? parseInt(String(taskId)) : undefined
                 })
             });
 
-            if (!response.ok) throw new Error('Failed to convert chat to knowledge');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'Failed to convert chat to knowledge');
+            }
 
             setKnowledgeAdded(true);
             setToastData({
@@ -176,11 +208,11 @@ const ChatView = forwardRef<ChatViewHandle, ChatViewProps>(({
                 description: 'This discussion has been summarized and added to your Knowledge Hub.',
                 emoji: '🧠'
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error converting chat to knowledge:', error);
             setToastData({
                 title: 'Conversion Failed',
-                description: 'Something went wrong while saving this discussion.',
+                description: error.message || 'Something went wrong while saving this discussion.',
                 emoji: '❌'
             });
         } finally {
@@ -659,6 +691,8 @@ const ChatView = forwardRef<ChatViewHandle, ChatViewProps>(({
                                 onShowLearnerViewChange={onShowLearnerViewChange}
                                 isAdminView={isAdminView}
                                 onFileDownload={onFileDownload}
+                                onRegenerate={handleRegenerate}
+                                canPersonalize={canPersonalize}
                             />
                         </div>
                     )}

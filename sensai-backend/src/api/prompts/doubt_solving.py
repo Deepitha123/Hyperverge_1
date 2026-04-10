@@ -31,3 +31,10 @@ DOUBT_SOLVING_USER_PROMPT = """{{reference_material}}
 User details:
 
 {{user_details}}"""
+
+STYLE_MODIFIERS = {
+    "beginner": "Explain using simple analogies, avoid technical jargon, and focus on fundamental 'why' questions.",
+    "interview": "Focus on technical terminology, efficiency, trade-offs, and how to articulate this to a recruiter.",
+    "code": "Prioritize code-first explanations. Use snippets and comments to explain logic over long text blocks.",
+    "visual": "Structure information into steps, tables, or lists, and use descriptive mental models/metaphors."
+}

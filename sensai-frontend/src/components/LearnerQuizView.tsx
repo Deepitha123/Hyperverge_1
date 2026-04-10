@@ -726,7 +726,8 @@ export default function LearnerQuizView({
         async (
             responseContent: string,
             responseType: 'text' | 'audio' | 'code' = 'text',
-            audioData?: string
+            audioData?: string,
+            explanationStyle: string = 'standard'
         ) => {
             if (!validQuestions || validQuestions.length === 0 || currentQuestionIndex >= validQuestions.length) {
                 return;
@@ -855,9 +856,9 @@ export default function LearnerQuizView({
                         "coding_languages": validQuestions[currentQuestionIndex].config.codingLanguages,
                         "context": getKnowledgeBaseContent(validQuestions[currentQuestionIndex].config as QuizQuestionConfig)
                     },
-                    user_id: userId,
-                    user_email: user?.email,
-                    task_id: taskId,
+                    user_id: parseInt(String(userId)),
+                    user_email: user?.email || '',
+                    task_id: parseInt(String(taskId)),
                     task_type: 'quiz'
                 };
             } else {
@@ -865,11 +866,12 @@ export default function LearnerQuizView({
                 requestBody = {
                     user_response: responseType === 'audio' ? audioData : responseContent,
                     response_type: responseType,
-                    question_id: currentQuestionId,
-                    user_id: userId,
-                    user_email: user?.email,
-                    task_id: taskId,
-                    task_type: 'quiz'
+                    question_id: currentQuestionId ? parseInt(String(currentQuestionId)) : undefined,
+                    user_id: parseInt(String(userId)),
+                    user_email: user?.email || '',
+                    task_id: parseInt(String(taskId)),
+                    task_type: 'quiz',
+                    explanation_style: explanationStyle
                 };
             }
 
@@ -1309,9 +1311,9 @@ export default function LearnerQuizView({
     } | null>(null);
 
     // Modified handleSubmitAnswer function to use shared logic
-    const handleSubmitAnswer = useCallback((responseType: 'text' | 'code' = 'text') => {
-        // Get the current answer from the ref
-        const answer = currentAnswerRef.current;
+    const handleSubmitAnswer = useCallback((responseType: 'text' | 'code' = 'text', explanationStyle?: string, customContent?: string) => {
+        // Get the current answer from the ref or custom content
+        const answer = customContent || currentAnswerRef.current;
 
         if (!answer.trim()) return;
 
@@ -1334,9 +1336,9 @@ export default function LearnerQuizView({
             }
         } catch { }
 
-        // Use the shared processing function for non-exam questions
-        processUserResponse(answer, responseType);
-    }, [processUserResponse, validQuestions, currentQuestionIndex]);
+        // Proceed with user response processing
+        processUserResponse(answer, responseType, undefined, explanationStyle);
+    }, [currentQuestionIndex, validQuestions, processUserResponse]);
 
     // Handle exam submission confirmation
     const handleExamSubmissionConfirm = useCallback(() => {

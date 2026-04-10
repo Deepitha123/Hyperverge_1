@@ -41,7 +41,7 @@ from api.prompts.router import ROUTER_SYSTEM_PROMPT, ROUTER_USER_PROMPT
 from api.prompts.rewrite_query import REWRITE_QUERY_SYSTEM_PROMPT, REWRITE_QUERY_USER_PROMPT
 from api.prompts.objective_question import OBJECTIVE_QUESTION_SYSTEM_PROMPT, OBJECTIVE_QUESTION_USER_PROMPT
 from api.prompts.subjective_question import SUBJECTIVE_QUESTION_SYSTEM_PROMPT, SUBJECTIVE_QUESTION_USER_PROMPT
-from api.prompts.doubt_solving import DOUBT_SOLVING_SYSTEM_PROMPT, DOUBT_SOLVING_USER_PROMPT
+from api.prompts.doubt_solving import DOUBT_SOLVING_SYSTEM_PROMPT, DOUBT_SOLVING_USER_PROMPT, STYLE_MODIFIERS
 from api.prompts.assignment import ASSIGNMENT_SYSTEM_PROMPT, ASSIGNMENT_USER_PROMPT
 
 router = APIRouter()
@@ -661,6 +661,11 @@ async def ai_response_for_question(request: AIChatRequest):
 
             messages += chat_history
 
+            style_modifier = STYLE_MODIFIERS.get(request.explanation_style, "")
+            if style_modifier:
+                # Prepend the style instruction to the first system message
+                messages[0]["content"] = f"{style_modifier}\n\n{messages[0]['content']}"
+
             with langfuse.start_as_current_observation(
                 as_type="generation", name="response"
             ) as observation:
@@ -958,6 +963,11 @@ async def ai_response_for_assignment(request: AIChatRequest):
                 if request.response_type == ChatResponseType.FILE
                 else Output
             )
+
+            style_modifier = STYLE_MODIFIERS.get(request.explanation_style, "")
+            if style_modifier:
+                # Prepend the style instruction to the first system message
+                messages[0]["content"] = f"{style_modifier}\n\n{messages[0]['content']}"
 
             with langfuse.start_as_current_observation(
                 as_type="generation", name="response"

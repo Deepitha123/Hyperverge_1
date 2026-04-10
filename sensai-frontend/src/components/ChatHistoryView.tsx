@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { ChatMessage, ScorecardItem } from '../types/quiz';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ArrowDownToLine } from 'lucide-react';
+import { ArrowDownToLine, Sparkles, ChevronDown } from 'lucide-react';
 
 // Code message display component
 const CodeMessageDisplay = ({ code, language }: { code: string, language?: string }) => {
@@ -66,6 +66,8 @@ interface ChatHistoryViewProps {
     onShowLearnerViewChange?: (show: boolean) => void;
     isAdminView?: boolean;
     onFileDownload?: (fileUuid: string, fileName: string) => void;
+    onRegenerate?: (style: string) => void;
+    canPersonalize?: boolean;
 }
 
 const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
@@ -80,6 +82,8 @@ const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
     onShowLearnerViewChange,
     isAdminView = false,
     onFileDownload,
+    onRegenerate,
+    canPersonalize = false,
 }) => {
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -95,6 +99,20 @@ const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
     const currentThinkingMessageRef = useRef("");
     // Ref to track if initial message has been set
     const initialMessageSetRef = useRef(false);
+
+    // State for personalization menu
+    const [openMenuMessageId, setOpenMenuMessageId] = useState<string | null>(null);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (openMenuMessageId && !(event.target as HTMLElement).closest('.personalization-menu-container')) {
+                setOpenMenuMessageId(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [openMenuMessageId]);
 
     // Preset list of thinking messages for the AI typing animation
     const thinkingMessages = taskType === 'learning_material'
@@ -460,6 +478,54 @@ const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
                                                             </button>
                                                         </div>
                                                     )}
+
+                                                     {message.sender === 'ai' && canPersonalize && onRegenerate && (
+                                                         <div className="flex gap-2 mt-2 personalization-menu-container">
+                                                             <div className="relative">
+                                                                 <button 
+                                                                    onClick={() => setOpenMenuMessageId(openMenuMessageId === message.id ? null : message.id)}
+                                                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-colors cursor-pointer ${
+                                                                        openMenuMessageId === message.id 
+                                                                        ? 'bg-amber-100 text-amber-800 border-amber-300' 
+                                                                        : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                                                                    } border`}
+                                                                 >
+                                                                     <Sparkles size={14} />
+                                                                     <span>Explain Like Me</span>
+                                                                     <ChevronDown size={12} className={`transition-transform ${openMenuMessageId === message.id ? 'rotate-180' : ''}`} />
+                                                                 </button>
+                                                                 {/* Dropdown Menu */}
+                                                                 {openMenuMessageId === message.id && (
+                                                                    <div className="absolute left-0 bottom-full mb-2 w-48 bg-white dark:bg-[#1D1D1D] rounded-xl shadow-2xl border border-gray-200 dark:border-[#35363a] z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+                                                                        <div className="p-1.5 flex flex-col gap-0.5">
+                                                                            {[
+                                                                                { id: 'beginner', label: '👶 Beginner', desc: 'Simple analogies' },
+                                                                                { id: 'interview', label: '👔 Interview Focused', desc: 'Typical questions' },
+                                                                                { id: 'code', label: '💻 Code First', desc: 'Hands-on examples' },
+                                                                                { id: 'visual', label: '🎨 Visual Intuition', desc: 'Conceptual models' }
+                                                                            ].map((style) => (
+                                                                                <button 
+                                                                                    key={style.id}
+                                                                                    onClick={() => {
+                                                                                        onRegenerate(style.id);
+                                                                                        setOpenMenuMessageId(null);
+                                                                                    }}
+                                                                                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-amber-50 dark:hover:bg-[#2D2D2D] group transition-all cursor-pointer"
+                                                                                >
+                                                                                    <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 group-hover:text-amber-700 dark:group-hover:text-amber-400">
+                                                                                        {style.label}
+                                                                                    </div>
+                                                                                    <div className="text-[10px] text-gray-500 dark:text-gray-400">
+                                                                                        {style.desc}
+                                                                                    </div>
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                 )}
+                                                             </div>
+                                                         </div>
+                                                     )}
 
                                                     {isErrorMessage(message) && onRetry && (
                                                         <div className="my-3">

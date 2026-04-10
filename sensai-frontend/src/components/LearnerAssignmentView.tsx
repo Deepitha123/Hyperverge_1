@@ -446,7 +446,8 @@ export default function LearnerAssignmentView({
             responseType: 'text' | 'audio' | 'file' = 'text',
             audioData?: string,
             fileUuid?: string,
-            fileData?: string
+            fileData?: string,
+            explanationStyle: string = 'standard'
         ) => {
             if (!taskId || !userId) {
                 return;
@@ -611,10 +612,11 @@ export default function LearnerAssignmentView({
             const requestBody: Record<string, unknown> = {
                 user_response: responseType === 'audio' ? (file_uuid || audioData) : responseType === 'file' ? (fileUuid || file_uuid) : responseContent,
                 response_type: responseType,
-                task_id: taskId,
-                user_id: userId,
-                user_email: user?.email,
+                task_id: parseInt(String(taskId)),
+                user_id: parseInt(String(userId)),
+                user_email: user?.email || '',
                 task_type: 'assignment',
+                explanation_style: explanationStyle,
                 ...(isTestMode && { chat_history: formattedChatHistory })
             };
 
@@ -861,11 +863,12 @@ export default function LearnerAssignmentView({
         ]
     );
 
-    const handleSubmitAnswer = useCallback(async () => {
-        if (!currentAnswer.trim()) return;
+    const handleSubmitAnswer = useCallback(async (responseType: 'text' | 'code' = 'text', explanationStyle?: string, customContent?: string) => {
+        const answer = customContent || currentAnswer;
+        if (!answer.trim()) return;
 
         // Use the shared processing function
-        processUserResponse(currentAnswer, 'text');
+        processUserResponse(answer, 'text', undefined, undefined, undefined, explanationStyle);
     }, [currentAnswer, processUserResponse]);
 
     const handleAudioSubmit = useCallback(async (audioBlob: Blob) => {
