@@ -115,6 +115,19 @@ export interface CreateHubPostInput {
   imageUrls?: string[];
 }
 
+// ── Personal Knowledge Base types ─────────────────────────────────────────────
+
+export interface PersonalKnowledge {
+  id: string;
+  learner_id: string;
+  course_id: string | null;
+  module_id: string | null;
+  title: string;
+  content: string;
+  tags: string[];
+  created_at: string;
+}
+
 export interface CreateHubCommentInput {
   learnerId: number;
   body: string;

@@ -454,4 +454,36 @@ export async function getModuleHubPosts(moduleId: string) {
   const res = await fetch(`${BACKEND()}/hub/module/${moduleId}/posts`, { cache: "no-store" });
   if (!res.ok) throw new Error(`getModuleHubPosts failed: ${res.status}`);
   return res.json();
-}
+}
+
+
+// ── Personal Knowledge Base API functions ───────────────────────────────────────────
+
+export async function convertChatToKnowledge(data: {
+  learner_id: number;
+  course_id?: number | null;
+  module_id?: number | null;
+  task_id: number;
+}) {
+  const res = await fetch(`${BACKEND()}/knowledge/convert`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`convertChatToKnowledge failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getLearnerKnowledge(learnerId: number) {
+  const res = await fetch(`${BACKEND()}/knowledge/${learnerId}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`getLearnerKnowledge failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteLearnerKnowledge(learnerId: number, knowledgeId: number) {
+  const res = await fetch(`${BACKEND()}/knowledge/${learnerId}/${knowledgeId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`deleteLearnerKnowledge failed: ${res.status}`);
+  return res.json();
+}

@@ -163,9 +163,6 @@ async def get_task_chat_history_for_user(
     if not task:
         raise ValueError("Task does not exist")
 
-    if task["type"] == TaskType.LEARNING_MATERIAL:
-        raise ValueError("Task is not a quiz or assignment")
-
     if task["type"] == TaskType.QUIZ:
         # For quiz tasks, get chat history through questions
         query = f"""
@@ -176,8 +173,8 @@ async def get_task_chat_history_for_user(
             AND ch.user_id = ? AND ch.deleted_at IS NULL AND q.deleted_at IS NULL
             ORDER BY ch.created_at ASC
         """
-    elif task["type"] == TaskType.ASSIGNMENT:
-        # For assignment tasks, get chat history directly by task_id
+    else:
+        # For assignment and learning material tasks, get chat history directly by task_id
         query = f"""
             SELECT ch.id, ch.created_at, ch.user_id, ch.question_id, ch.role, ch.content, ch.response_type
             FROM {chat_history_table_name} ch
@@ -193,6 +190,9 @@ async def get_task_chat_history_for_user(
     )
 
     return [convert_chat_message_to_dict(row) for row in chat_history]
+
+# Alias for backward compatibility or different naming conventions
+get_chat_history_from_db = get_task_chat_history_for_user
 
 
 async def delete_message(message_id: int):

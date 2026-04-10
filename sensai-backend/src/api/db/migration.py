@@ -363,7 +363,32 @@ async def add_confidence_score_to_hub_comments():
         await conn.commit()
 
 
+async def create_personal_knowledge_table_migration():
+    """Migration: Create personal_knowledge table."""
+    async with get_new_db_connection() as conn:
+        cursor = await conn.cursor()
+        await cursor.execute(
+            f"""CREATE TABLE IF NOT EXISTS personal_knowledge (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                learner_id INTEGER NOT NULL,
+                course_id INTEGER,
+                module_id INTEGER,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                tags TEXT, -- JSON array of strings
+                source_chat_history TEXT, -- Optional JSON of original chat
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (learner_id) REFERENCES {users_table_name}(id) ON DELETE CASCADE
+            )"""
+        )
+        await cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_personal_knowledge_learner_id ON personal_knowledge (learner_id)"
+        )
+        await conn.commit()
+
+
 async def run_migrations():
     await cleanup_invalid_chat_history()
     await create_hub_tables_migration()
     await add_confidence_score_to_hub_comments()
+    await create_personal_knowledge_table_migration()

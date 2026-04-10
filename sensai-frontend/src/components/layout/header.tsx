@@ -8,7 +8,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useSchools } from "@/lib/api";
 import CreateCourseDialog from "@/components/CreateCourseDialog";
 import SchoolPickerDialog from "@/components/SchoolPickerDialog";
-import { ChevronDown, Plus, X, Book, School } from "lucide-react";
+import { ChevronDown, Plus, X, Book, School, Brain } from "lucide-react";
 import { Cohort } from "@/types";
 import { useThemePreference } from "@/lib/hooks/useThemePreference";
 
@@ -200,6 +200,29 @@ export function Header({
                             className="hidden md:block px-6 py-3 text-sm font-medium rounded-full hover:opacity-90 transition-opacity focus:outline-none cursor-pointer bg-[#d1d5db] dark:bg-white text-[#1f2937] dark:text-black"
                             >
                                 {getButtonText()}
+                            </button>
+                        )}
+
+                        {session?.user && (
+                            <button
+                                onClick={() => {
+                                    // Get the current school ID from the URL if possible
+                                    const pathParts = window.location.pathname.split('/');
+                                    const currentSchoolId = pathParts[2] === 'admin' ? pathParts[3] : pathParts[2];
+                                    if (currentSchoolId && currentSchoolId !== 'school') {
+                                        router.push(`/school/${currentSchoolId}/knowledge`);
+                                    } else {
+                                        // Fallback if not inside a school context
+                                        const fallbackSchoolId = schools?.[0]?.id || schoolId;
+                                        if (fallbackSchoolId) {
+                                            router.push(`/school/${fallbackSchoolId}/knowledge`);
+                                        }
+                                    }
+                                }}
+                                className="hidden md:flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-full bg-gradient-to-r from-purple-600/10 to-blue-600/10 hover:from-purple-600/20 hover:to-blue-600/20 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800/30 transition-all cursor-pointer shadow-sm hover:shadow-md"
+                            >
+                                <Brain size={18} className="animate-pulse" />
+                                <span>My Knowledge</span>
                             </button>
                         )}
 

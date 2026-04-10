@@ -42,6 +42,8 @@ export interface LearnerQuizViewProps {
     onAiRespondingChange?: (isResponding: boolean) => void;
     onMobileViewChange?: (mode: MobileViewMode) => void;
     isAdminView?: boolean;
+    courseId?: string;
+    moduleId?: string;
 }
 
 export default function LearnerQuizView({
@@ -58,6 +60,8 @@ export default function LearnerQuizView({
     onAiRespondingChange,
     onMobileViewChange,
     isAdminView = false,
+    courseId,
+    moduleId,
 }: LearnerQuizViewProps) {
     const { user } = useAuth();
     // Use global theme (html.dark) as the source of truth to avoid reload-required mismatches.
@@ -2121,6 +2125,9 @@ export default function LearnerQuizView({
                             onShowLearnerViewChange={setShowLearnerView}
                             isAdminView={isAdminView}
                             userId={userId}
+                            courseId={courseId}
+                            moduleId={moduleId}
+                            taskId={taskId}
                             ref={chatViewRef}
                         />
                     )}

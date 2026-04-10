@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { useCourses, useSchools, Course as ApiCourse } from "@/lib/api";
 import CourseCard from "@/components/CourseCard";
 import CreateCourseDialog from "@/components/CreateCourseDialog";
+import { Brain } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
@@ -242,6 +243,24 @@ export default function Home() {
                   </h2>
                 )}
               </div>
+
+              {/* My Knowledge Hub Button for Learners */}
+              {activeTab === 'learning' && schools && schools.length > 0 && learningCourses.length > 0 && (
+                <div className="flex justify-start mb-8">
+                  <button
+                    onClick={() => router.push(`/school/${schools[0].id}/knowledge`)}
+                    className="flex items-center gap-3 px-6 py-4 rounded-3xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold hover:shadow-[0_8px_30px_rgb(147,51,234,0.3)] hover:scale-[1.02] transition-all cursor-pointer group border-none"
+                  >
+                    <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Brain className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex flex-col items-start translate-y-[-1px]">
+                      <span className="text-sm opacity-80 font-normal leading-tight">Personal Library</span>
+                      <span className="text-lg leading-tight">My Knowledge Hub</span>
+                    </div>
+                  </button>
+                </div>
+              )}
 
               {/* Course grid */}
               {hasAnyCourses && (

@@ -34,7 +34,9 @@ const POST_TYPE_COLORS: Record<HubPostType, string> = {
 };
 
 function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
+  // Append 'Z' to treat the SQLite local timestamp as UTC
+  const date = dateStr.endsWith("Z") ? new Date(dateStr) : new Date(dateStr + "Z");
+  const diff = Date.now() - date.getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;

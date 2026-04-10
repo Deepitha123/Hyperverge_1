@@ -32,6 +32,8 @@ interface LearnerAssignmentViewProps {
     className?: string;
     onTaskComplete?: (taskId: string, isComplete: boolean) => void;
     onAiRespondingChange?: (isResponding: boolean) => void;
+    courseId?: string;
+    moduleId?: string;
 }
 
 // Local chat message type aligned with ChatView expectations
@@ -70,6 +72,8 @@ export default function LearnerAssignmentView({
     className = "",
     onTaskComplete,
     onAiRespondingChange,
+    courseId,
+    moduleId,
 }: LearnerAssignmentViewProps) {
     const { user } = useAuth();
     // Use global theme (html.dark) as the source of truth.
@@ -1228,7 +1232,10 @@ export default function LearnerAssignmentView({
                                 userId={userId}
                                 showUploadSection={needsResubmission}
                                 onFileUploaded={handleFileSubmit}
-                                    onFileDownload={handleFileDownload}
+                                onFileDownload={handleFileDownload}
+                                courseId={courseId}
+                                moduleId={moduleId}
+                                taskId={taskId}
                             />
                         </div>
                     )}

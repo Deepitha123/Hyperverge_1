@@ -10,22 +10,31 @@ export const authOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      authorization: {
+        params: {
+          prompt: "select_account",
+          access_type: "offline",
+          response_type: "code"
+        }
+      }
     }),
   ],
   pages: {
     signIn: "/login",
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account }: { token: JWT; user?: User; account?: Account | null }) {
       // If signing in for the first time, save user info in token
       if (account && user) {
         token.accessToken = account.access_token;
         token.idToken = account.id_token;
         
         // If this is a Google signin, get userId from backend
-        if (account.provider === 'google') {
+        if (account.provider === 'google' && user.email) {
           try {
-            const result = await registerUserWithBackend(user, account);
+            // Create a version of user with required email for the backend
+            const userData = { ...user, email: user.email as string };
+            const result = await registerUserWithBackend(userData as any, account);
             
             // Extract the ID from the result
             if (result && result.id) {
@@ -43,7 +52,7 @@ export const authOptions = {
       return token;
     },
     
-    async session({ session, token }) {      
+    async session({ session, token }: { session: Session; token: JWT }) {      
       // Send properties to the client
       if (session.user) {
         // Use the backend user ID directly as the main ID
@@ -62,7 +71,7 @@ export const authOptions = {
       return session;
     },
     
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account, profile }: { user: User; account: Account | null; profile?: Profile }) {
       if (!account || !profile) return true;
       
       try {

@@ -5,7 +5,7 @@ import ChatHistoryView from './ChatHistoryView';
 import AudioInputComponent from './AudioInputComponent';
 import CodeEditorView, { CodeEditorViewHandle } from './CodeEditorView';
 import Toast from './Toast';
-import { MessageCircle, Code, Sparkles, Save } from 'lucide-react';
+import { MessageCircle, Code, Sparkles, Save, Brain, CheckCircle } from 'lucide-react';
 import UploadFile from './UploadFile';
 import isEqual from 'lodash/isEqual';
 import { useThemePreference } from '@/lib/hooks/useThemePreference';
@@ -53,6 +53,9 @@ interface ChatViewProps {
     showUploadSection?: boolean;
     onFileUploaded?: (file: File) => void;
     onFileDownload?: (fileUuid: string, fileName: string) => void;
+    courseId?: string;
+    moduleId?: string;
+    taskId?: string;
 }
 
 export interface ChatViewHandle {
@@ -86,7 +89,12 @@ const ChatView = forwardRef<ChatViewHandle, ChatViewProps>(({
     showUploadSection = false,
     onFileUploaded,
     onFileDownload,
+    courseId,
+    moduleId,
+    taskId,
 }, ref) => {
+    const [isConverting, setIsConverting] = useState(false);
+    const [knowledgeAdded, setKnowledgeAdded] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     // Add ref for CodeEditorView
@@ -134,6 +142,51 @@ const ChatView = forwardRef<ChatViewHandle, ChatViewProps>(({
 
     // Track autosave state separately (no UI needed)
     const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    const handleConvertToKnowledge = async () => {
+        if (!userId || currentChatHistory.length === 0 || isConverting) return;
+
+        setIsConverting(true);
+        try {
+            const history = currentChatHistory.map(msg => ({
+                role: msg.sender === 'user' ? 'user' : 'assistant',
+                content: msg.content,
+                timestamp: msg.timestamp.toISOString()
+            }));
+
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/knowledge/convert`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    learner_id: parseInt(userId),
+                    chat_history: history,
+                    course_id: courseId ? parseInt(courseId) : undefined,
+                    module_id: moduleId ? parseInt(moduleId) : undefined,
+                    task_id: taskId ? parseInt(taskId) : undefined
+                })
+            });
+
+            if (!response.ok) throw new Error('Failed to convert chat to knowledge');
+
+            setKnowledgeAdded(true);
+            setToastData({
+                title: 'Knowledge Saved!',
+                description: 'This discussion has been summarized and added to your Knowledge Hub.',
+                emoji: '🧠'
+            });
+        } catch (error) {
+            console.error('Error converting chat to knowledge:', error);
+            setToastData({
+                title: 'Conversion Failed',
+                description: 'Something went wrong while saving this discussion.',
+                emoji: '❌'
+            });
+        } finally {
+            setIsConverting(false);
+        }
+    };
 
     // Update view state when question config changes
     useEffect(() => {
@@ -643,6 +696,37 @@ const ChatView = forwardRef<ChatViewHandle, ChatViewProps>(({
                                 </div>
                             )}
 
+                            {/* Convert to Knowledge Button */}
+                            {currentChatHistory.length > 0 && (
+                                <div className="mb-4 flex justify-end">
+                                    <button
+                                        onClick={handleConvertToKnowledge}
+                                        disabled={isConverting || knowledgeAdded}
+                                        className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all shadow-sm ${knowledgeAdded
+                                            ? 'bg-emerald-100 text-emerald-700 cursor-default'
+                                            : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 cursor-pointer'
+                                            } ${isConverting ? 'opacity-70' : ''}`}
+                                    >
+                                        {isConverting ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                <span>Summarizing...</span>
+                                            </>
+                                        ) : knowledgeAdded ? (
+                                            <>
+                                                <CheckCircle size={16} />
+                                                <span>Added to Knowledge</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Brain size={16} />
+                                                <span>Convert to Knowledge</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+
                             {!(currentQuestionConfig?.responseType === 'exam' && isQuestionCompleted) && (
                                 /* Input area - conditional render based on input type */
                                 <>
@@ -928,6 +1012,38 @@ const ChatView = forwardRef<ChatViewHandle, ChatViewProps>(({
                     background-color: transparent;
                 }
             `}</style>
+
+            {/* Knowledge Conversion Button */}
+            {!isViewingCode && currentChatHistory.length > 0 && (
+                <div className="flex justify-end mb-4">
+                    <button
+                        onClick={handleConvertToKnowledge}
+                        disabled={isConverting || knowledgeAdded}
+                        className={`group relative flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-semibold transition-all duration-300 shadow-sm hover:shadow-md 
+                            ${knowledgeAdded 
+                                ? 'bg-emerald-500 text-white cursor-default' 
+                                : 'bg-white dark:bg-[#1A1A1A] border border-purple-200 dark:border-purple-800/30 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 cursor-pointer'
+                            } 
+                            ${isConverting ? 'opacity-75 cursor-wait' : ''}`}
+                    >
+                        {isConverting ? (
+                            <div className="w-4 h-4 border-2 border-purple-600 dark:border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                        ) : knowledgeAdded ? (
+                            <CheckCircle size={16} />
+                        ) : (
+                            <Brain size={16} className="group-hover:scale-110 transition-transform" />
+                        )}
+                        <span>
+                            {isConverting ? 'Synthesizing Wisdom...' : knowledgeAdded ? 'Added to Knowledge Base' : 'Convert to Knowledge'}
+                        </span>
+                        
+                        {/* Hover Sparkle Effect */}
+                        {!knowledgeAdded && !isConverting && (
+                            <Sparkles size={12} className="absolute -top-1 -right-1 text-purple-500 opacity-0 group-hover:opacity-100 transition-opacity animate-pulse" />
+                        )}
+                    </button>
+                </div>
+            )}
 
             {/* Toggle button for coding questions */}
             {!viewOnly && isCodingQuestion &&

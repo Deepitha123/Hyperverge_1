@@ -1325,6 +1325,8 @@ export default function LearnerCourseView({
                                                 onMarkComplete={!completedTasks[activeItem?.id] && !viewOnly ? markTaskComplete : undefined}
                                                 viewOnly={viewOnly}
                                                 onChatOpenChange={setIsAskDoubtOpen}
+                                                courseId={courseId}
+                                                moduleId={activeModuleId || undefined}
                                             />
                                         )}
                                         {(activeItem?.type === 'quiz') && (
@@ -1342,6 +1344,8 @@ export default function LearnerCourseView({
                                                     onAiRespondingChange={handleAiRespondingChange}
                                                     className={`${isSidebarOpen ? 'sidebar-visible' : ''}`}
                                                     isAdminView={isAdminView}
+                                                    courseId={courseId}
+                                                    moduleId={activeModuleId || undefined}
                                                 />
                                             </>
                                         )}
@@ -1355,6 +1359,8 @@ export default function LearnerCourseView({
                                                 viewOnly={viewOnly}
                                                 onTaskComplete={handleTaskCompletion}
                                                 onAiRespondingChange={handleAiRespondingChange}
+                                                courseId={courseId}
+                                                moduleId={activeModuleId || undefined}
                                             />
                                         )}
                                     </>

@@ -32,6 +32,8 @@ interface LearningMaterialViewerProps {
     viewOnly?: boolean;
     onMarkComplete?: () => void;
     onChatOpenChange?: (isOpen: boolean) => void;
+    courseId?: string;
+    moduleId?: string;
 }
 
 export default function LearningMaterialViewer({
@@ -42,6 +44,8 @@ export default function LearningMaterialViewer({
     viewOnly = false,
     onMarkComplete,
     onChatOpenChange,
+    courseId,
+    moduleId,
 }: LearningMaterialViewerProps) {
     const { user } = useAuth();
     // Use global theme (html.dark) as the source of truth.
@@ -752,6 +756,10 @@ export default function LearningMaterialViewer({
                             handleViewScorecard={handleViewScorecard}
                             completedQuestionIds={{}}
                             handleRetry={handleRetry}
+                            courseId={courseId}
+                            moduleId={moduleId}
+                            userId={userId}
+                            taskId={taskId}
                         />
                     </div>
                 )}
