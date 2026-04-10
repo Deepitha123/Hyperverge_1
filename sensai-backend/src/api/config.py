@@ -61,6 +61,13 @@ integrations_table_name = "integrations"
 bq_sync_table_name = "bq_sync"
 assignment_table_name = "assignment"
 
+# Hub (discussion board) table names
+hub_posts_table_name = "hub_posts"
+hub_post_images_table_name = "hub_post_images"
+hub_comments_table_name = "hub_comments"
+hub_comment_images_table_name = "hub_comment_images"
+hub_likes_table_name = "hub_likes"
+
 UPLOAD_FOLDER_NAME = "uploads"
 
 uncategorized_milestone_name = "[UNASSIGNED]"

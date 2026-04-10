@@ -27,6 +27,11 @@ from api.config import (
     code_drafts_table_name,
     integrations_table_name,
     assignment_table_name,
+    hub_posts_table_name,
+    hub_post_images_table_name,
+    hub_comments_table_name,
+    hub_comment_images_table_name,
+    hub_likes_table_name,
 )
 
 
@@ -231,5 +236,134 @@ async def cleanup_invalid_chat_history():
         await conn.commit()
 
 
+async def create_hub_tables_migration():
+    """
+    Migration: Creates all 5 hub (discussion board) tables.
+    Uses IF NOT EXISTS so it is safe to run on an existing database.
+    """
+    async with get_new_db_connection() as conn:
+        cursor = await conn.cursor()
+
+        # hub_posts
+        await cursor.execute(
+            f"""CREATE TABLE IF NOT EXISTS {hub_posts_table_name} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                course_id INTEGER NOT NULL,
+                learner_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                post_type TEXT NOT NULL DEFAULT 'discussion',
+                module_id INTEGER,
+                is_pinned INTEGER NOT NULL DEFAULT 0,
+                is_highlighted INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                deleted_at DATETIME,
+                FOREIGN KEY (course_id) REFERENCES {courses_table_name}(id) ON DELETE CASCADE,
+                FOREIGN KEY (learner_id) REFERENCES {users_table_name}(id) ON DELETE CASCADE,
+                FOREIGN KEY (module_id) REFERENCES {milestones_table_name}(id) ON DELETE SET NULL
+            )"""
+        )
+        await cursor.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_hub_posts_course_id ON {hub_posts_table_name} (course_id)"
+        )
+        await cursor.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_hub_posts_module_id ON {hub_posts_table_name} (module_id)"
+        )
+
+        # hub_post_images
+        await cursor.execute(
+            f"""CREATE TABLE IF NOT EXISTS {hub_post_images_table_name} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                post_id INTEGER NOT NULL,
+                image_url TEXT NOT NULL,
+                FOREIGN KEY (post_id) REFERENCES {hub_posts_table_name}(id) ON DELETE CASCADE
+            )"""
+        )
+        await cursor.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_hub_post_images_post_id ON {hub_post_images_table_name} (post_id)"
+        )
+
+        # hub_comments
+        await cursor.execute(
+            f"""CREATE TABLE IF NOT EXISTS {hub_comments_table_name} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                post_id INTEGER NOT NULL,
+                learner_id INTEGER NOT NULL,
+                body TEXT NOT NULL,
+                confidence_score INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                deleted_at DATETIME,
+                FOREIGN KEY (post_id) REFERENCES {hub_posts_table_name}(id) ON DELETE CASCADE,
+                FOREIGN KEY (learner_id) REFERENCES {users_table_name}(id) ON DELETE CASCADE
+            )"""
+        )
+        await cursor.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_hub_comments_post_id ON {hub_comments_table_name} (post_id)"
+        )
+
+        # hub_comment_images
+        await cursor.execute(
+            f"""CREATE TABLE IF NOT EXISTS {hub_comment_images_table_name} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                comment_id INTEGER NOT NULL,
+                image_url TEXT NOT NULL,
+                FOREIGN KEY (comment_id) REFERENCES {hub_comments_table_name}(id) ON DELETE CASCADE
+            )"""
+        )
+        await cursor.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_hub_comment_images_comment_id ON {hub_comment_images_table_name} (comment_id)"
+        )
+
+        # hub_likes  (either post_id XOR comment_id is set, never both)
+        await cursor.execute(
+            f"""CREATE TABLE IF NOT EXISTS {hub_likes_table_name} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                post_id INTEGER,
+                comment_id INTEGER,
+                learner_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (post_id) REFERENCES {hub_posts_table_name}(id) ON DELETE CASCADE,
+                FOREIGN KEY (comment_id) REFERENCES {hub_comments_table_name}(id) ON DELETE CASCADE,
+                FOREIGN KEY (learner_id) REFERENCES {users_table_name}(id) ON DELETE CASCADE
+            )"""
+        )
+        await cursor.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_hub_likes_post_id ON {hub_likes_table_name} (post_id)"
+        )
+        await cursor.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_hub_likes_comment_id ON {hub_likes_table_name} (comment_id)"
+        )
+
+        await conn.commit()
+
+
+async def add_confidence_score_to_hub_comments():
+    """Migration: Add confidence_score column to hub_comments if it doesn't exist."""
+    async with get_new_db_connection() as conn:
+        cursor = await conn.cursor()
+
+        # Check if table exists
+        await cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (hub_comments_table_name,),
+        )
+        table_exists = await cursor.fetchone()
+
+        if table_exists:
+            # Get existing columns
+            await cursor.execute(f"PRAGMA table_info({hub_comments_table_name})")
+            existing_columns = [col[1] for col in await cursor.fetchall()]
+
+            if "confidence_score" not in existing_columns:
+                await cursor.execute(
+                    f"ALTER TABLE {hub_comments_table_name} ADD COLUMN confidence_score INTEGER"
+                )
+                print(f"Added confidence_score column to {hub_comments_table_name}")
+
+        await conn.commit()
+
+
 async def run_migrations():
     await cleanup_invalid_chat_history()
+    await create_hub_tables_migration()
+    await add_confidence_score_to_hub_comments()

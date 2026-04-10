@@ -199,6 +199,7 @@ export default function MentorCohortView({
                     courses={courses}
                     onCourseSelect={onActiveCourseChange}
                     activeCourseIndex={activeCourseIndex}
+                    userRole="mentor"
                 />
             )}
         </div>

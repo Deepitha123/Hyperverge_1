@@ -318,3 +318,140 @@ export const addModule = async (courseId: string, schoolId: string, modules: Mod
       setActiveModuleId(newModule.id);
   }
 };
+
+
+// ── Hub (discussion board) API functions ──────────────────────────────────────
+
+const BACKEND = () => process.env.NEXT_PUBLIC_BACKEND_URL?.replace("localhost", "127.0.0.1") || "http://127.0.0.1:8001";
+
+export async function getHubPosts(courseId: string, sort: "newest" | "top" = "newest") {
+  const res = await fetch(`${BACKEND()}/hub/${courseId}/posts?sort=${sort}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`getHubPosts failed: ${res.status}`);
+  const data = await res.json();
+  return data.map((p: any) => ({
+    id: String(p.id),
+    courseId: String(p.course_id),
+    learnerId: String(p.learner_id),
+    learnerName: p.learner_name || "Unknown",
+    learnerAvatar: p.learner_avatar ?? null,
+    title: p.title,
+    body: p.body,
+    postType: p.post_type,
+    moduleId: p.module_id != null ? String(p.module_id) : null,
+    moduleName: p.module_name ?? null,
+    isPinned: Boolean(p.is_pinned),
+    isHighlighted: Boolean(p.is_highlighted),
+    likeCount: p.like_count ?? 0,
+    commentCount: p.comment_count ?? 0,
+    images: p.images ?? [],
+    createdAt: p.created_at,
+  }));
+}
+
+export async function createHubPost(courseId: string, data: {
+  learnerId: number; title: string; body: string;
+  postType: string; moduleId?: number; imageUrls?: string[];
+}) {
+  const res = await fetch(`${BACKEND()}/hub/${courseId}/posts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      learner_id: data.learnerId, title: data.title, body: data.body,
+      post_type: data.postType, module_id: data.moduleId ?? null,
+      image_urls: data.imageUrls ?? [],
+    }),
+  });
+  if (!res.ok) throw new Error(`createHubPost failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getHubPost(postId: string) {
+  const res = await fetch(`${BACKEND()}/hub/posts/${postId}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`getHubPost failed: ${res.status}`);
+  const p = await res.json();
+  return {
+    id: String(p.id), courseId: String(p.course_id), learnerId: String(p.learner_id),
+    learnerName: p.learner_name || "Unknown", learnerAvatar: p.learner_avatar ?? null,
+    title: p.title, body: p.body, postType: p.post_type,
+    moduleId: p.module_id != null ? String(p.module_id) : null, moduleName: p.module_name ?? null,
+    isPinned: Boolean(p.is_pinned), isHighlighted: Boolean(p.is_highlighted),
+    likeCount: p.like_count ?? 0, commentCount: p.comment_count ?? 0,
+    images: p.images ?? [], createdAt: p.created_at,
+    comments: (p.comments ?? []).map((c: any) => ({
+      id: String(c.id), postId: String(c.post_id), learnerId: String(c.learner_id),
+      learnerName: c.learner_name || "Unknown", learnerAvatar: c.learner_avatar ?? null,
+      body: c.body, confidenceScore: c.confidence_score, likeCount: c.like_count ?? 0,
+      images: c.images ?? [], createdAt: c.created_at,
+    })),
+  };
+}
+
+export async function createHubComment(postId: string, data: { learnerId: number; body: string; imageUrls?: string[] }) {
+  const res = await fetch(`${BACKEND()}/hub/posts/${postId}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ learner_id: data.learnerId, body: data.body, image_urls: data.imageUrls ?? [] }),
+  });
+  if (!res.ok) throw new Error(`createHubComment failed: ${res.status}`);
+  return res.json();
+}
+
+export async function togglePostLike(postId: string, learnerId: number) {
+  const res = await fetch(`${BACKEND()}/hub/posts/${postId}/like`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ learner_id: learnerId }),
+  });
+  if (!res.ok) throw new Error(`togglePostLike failed: ${res.status}`);
+  return res.json();
+}
+
+export async function toggleCommentLike(commentId: string, learnerId: number) {
+  const res = await fetch(`${BACKEND()}/hub/comments/${commentId}/like`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ learner_id: learnerId }),
+  });
+  if (!res.ok) throw new Error(`toggleCommentLike failed: ${res.status}`);
+  return res.json();
+}
+
+export async function pinPost(postId: string) {
+  const res = await fetch(`${BACKEND()}/hub/posts/${postId}/pin`, { method: "PATCH" });
+  if (!res.ok) throw new Error(`pinPost failed: ${res.status}`);
+  return res.json();
+}
+
+export async function highlightPost(postId: string) {
+  const res = await fetch(`${BACKEND()}/hub/posts/${postId}/highlight`, { method: "PATCH" });
+  if (!res.ok) throw new Error(`highlightPost failed: ${res.status}`);
+  return res.json();
+}
+
+export async function linkPostToModule(postId: string, moduleId: string) {
+  const res = await fetch(`${BACKEND()}/hub/posts/${postId}/link-module`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ module_id: parseInt(moduleId) }),
+  });
+  if (!res.ok) throw new Error(`linkPostToModule failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteHubPost(postId: string) {
+  const res = await fetch(`${BACKEND()}/hub/posts/${postId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`deleteHubPost failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteHubComment(commentId: string) {
+  const res = await fetch(`${BACKEND()}/hub/comments/${commentId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`deleteHubComment failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getModuleHubPosts(moduleId: string) {
+  const res = await fetch(`${BACKEND()}/hub/module/${moduleId}/posts`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`getModuleHubPosts failed: ${res.status}`);
+  return res.json();
+}

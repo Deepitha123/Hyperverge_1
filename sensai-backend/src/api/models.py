@@ -798,4 +798,37 @@ class CreateIntegrationRequest(BaseModel):
 class UpdateIntegrationRequest(BaseModel):
     access_token: str | None = None
     refresh_token: str | None = None
-    expires_at: datetime | None = None
+
+
+# ── Hub (discussion board) models ────────────────────────────────────────────
+
+class HubPostType(str, Enum):
+    QUESTION = "question"
+    UNDERSTANDING = "understanding"
+    DISCUSSION = "discussion"
+
+    def __str__(self):
+        return self.value
+
+
+class CreateHubPostRequest(BaseModel):
+    learner_id: int
+    title: str
+    body: str
+    post_type: HubPostType
+    module_id: Optional[int] = None
+    image_urls: Optional[List[str]] = []
+
+
+class CreateHubCommentRequest(BaseModel):
+    learner_id: int
+    body: str
+    image_urls: Optional[List[str]] = []
+
+
+class ToggleLikeRequest(BaseModel):
+    learner_id: int
+
+
+class LinkModuleRequest(BaseModel):
+    module_id: int

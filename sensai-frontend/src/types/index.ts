@@ -68,4 +68,55 @@ export interface Milestone {
 // Export all quiz types
 export * from './quiz';
 
-// Export other types as needed 
+// Export other types as needed
+
+// ── Hub (discussion board) types ─────────────────────────────────────────────
+
+export type HubPostType = "question" | "understanding" | "discussion";
+
+export interface HubPost {
+  id: string;
+  courseId: string;
+  learnerId: string;
+  learnerName: string;
+  learnerAvatar: string | null;
+  title: string;
+  body: string;
+  postType: HubPostType;
+  moduleId: string | null;
+  moduleName: string | null;
+  isPinned: boolean;
+  isHighlighted: boolean;
+  likeCount: number;
+  commentCount: number;
+  images: string[];
+  createdAt: string;
+}
+
+export interface HubComment {
+  id: string;
+  postId: string;
+  learnerId: string;
+  learnerName: string;
+  learnerAvatar: string | null;
+  body: string;
+  confidenceScore?: number;
+  likeCount: number;
+  images: string[];
+  createdAt: string;
+}
+
+export interface CreateHubPostInput {
+  learnerId: number;
+  title: string;
+  body: string;
+  postType: HubPostType;
+  moduleId?: number;
+  imageUrls?: string[];
+}
+
+export interface CreateHubCommentInput {
+  learnerId: number;
+  body: string;
+  imageUrls?: string[];
+}

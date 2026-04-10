@@ -26,6 +26,7 @@ from api.routes import (
     ai,
     scorecard,
     integration,
+    hub,
 )
 
 # from api.routes.ai import (
@@ -42,6 +43,9 @@ import sentry_sdk
 async def lifespan(app: FastAPI):
     # Initialize comprehensive logging as the very first step
     logger.info("Starting application")
+
+    from api.db import init_db
+    await init_db()
 
     scheduler.start()
 
@@ -134,6 +138,7 @@ app.include_router(code.router, prefix="/code", tags=["code"])
 app.include_router(hva.router, prefix="/hva", tags=["hva"])
 app.include_router(websocket_router, prefix="/ws", tags=["websockets"])
 app.include_router(integration.router, prefix="/integrations", tags=["integrations"])
+app.include_router(hub.router, prefix="/hub", tags=["hub"])
 
 
 @app.exception_handler(Exception)

@@ -1,9 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { useRouter, useParams } from "next/navigation";
 import { ModuleItem, Module } from "@/types/course";
 import CourseModuleList from "./CourseModuleList";
+import ModuleHubLinks from "./ModuleHubLinks";
 import dynamic from "next/dynamic";
-import { X, CheckCircle, BookOpen, HelpCircle, Clipboard, ChevronLeft, ChevronRight, Menu, FileText, Brain, ClipboardList, Loader2, PenSquare } from "lucide-react";
+import { X, CheckCircle, BookOpen, HelpCircle, Clipboard, ChevronLeft, ChevronRight, Menu, FileText, Brain, ClipboardList, Loader2, PenSquare, MessageSquare } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import confetti from "canvas-confetti";
 import SuccessSound from "./SuccessSound";
@@ -43,6 +45,9 @@ interface LearnerCourseViewProps {
     taskId?: string | null;
     questionId?: string | null;
     onUpdateTaskAndQuestionIdInUrl?: (taskId: string | null, questionId: string | null) => void;
+    courseId?: string;
+    courseName?: string;
+    userRole?: string;
 }
 
 export default function LearnerCourseView({
@@ -60,7 +65,13 @@ export default function LearnerCourseView({
     taskId = null,
     questionId = null,
     onUpdateTaskAndQuestionIdInUrl = () => { },
+    courseId = '',
+    courseName = '',
+    userRole = 'learner',
 }: LearnerCourseViewProps) {
+    const router = useRouter();
+    const params = useParams();
+    const schoolId = String(params?.id || '');
     // Get user from auth context
     const { user } = useAuth();
     const userId = viewOnly ? learnerId : user?.id || '';
@@ -988,6 +999,24 @@ export default function LearnerCourseView({
 
     return (
         <div className="bg-white dark:bg-black">
+            {/* Hub tab button — always visible above module list */}
+            {courseId && !isAdminView && (
+                <div className="px-4 pt-3 pb-1">
+                    <button
+                        id="hub-tab-button"
+                        onClick={() =>
+                            router.push(
+                                `/school/${schoolId}/hub?courseId=${courseId}&role=${userRole}`
+                            )
+                        }
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors border border-indigo-200 dark:border-indigo-800"
+                    >
+                        <MessageSquare size={15} />
+                        {courseName ? `${courseName} Hub` : "Course Hub"}
+                    </button>
+                </div>
+            )}
+
             {filteredModules.length > 0 ? (
                 <CourseModuleList
                     modules={modulesWithProgress}
@@ -997,6 +1026,8 @@ export default function LearnerCourseView({
                     onOpenItem={openTaskItem}
                     completedTaskIds={completedTasks}
                     completedQuestionIds={localCompletedQuestionIds}
+                    courseId={courseId}
+                    schoolId={schoolId}
                 />
             ) : (
                 <div className="flex flex-col items-center justify-center py-16 text-center">

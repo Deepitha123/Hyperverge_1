@@ -7,6 +7,7 @@ import ConfirmationDialog from "@/components/ConfirmationDialog";
 import Tooltip from "@/components/Tooltip"; // Import the Tooltip component
 import { formatScheduleDate } from "@/lib/utils/dateFormat"; // Import the utility function
 import { useThemePreference } from "@/lib/hooks/useThemePreference";
+import ModuleHubLinks from "./ModuleHubLinks";
 
 
 interface CourseModuleListProps {
@@ -1180,6 +1181,15 @@ export default function CourseModuleList({
                                                     </button>
                                                 </Tooltip>
                                             </div>
+                                        )}
+                                        
+                                        {/* Course Hub Links - only in view mode */}
+                                        {mode === 'view' && schoolId && courseId && (
+                                            <ModuleHubLinks
+                                                moduleId={module.id}
+                                                schoolId={schoolId}
+                                                courseId={courseId}
+                                            />
                                         )}
                                     </div>
                                 </div>

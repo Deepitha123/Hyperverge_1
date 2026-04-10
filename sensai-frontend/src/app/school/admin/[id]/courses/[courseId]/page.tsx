@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { ChevronUp, ChevronDown, X, ChevronRight, ChevronDown as ChevronDownExpand, Plus, BookOpen, HelpCircle, Trash, Zap, Eye, Check, FileEdit, Clipboard, ArrowLeft, Pencil, Users, UsersRound, ExternalLink, Sparkles, Loader2, Share, Settings } from "lucide-react";
+import { ChevronUp, ChevronDown, X, ChevronRight, ChevronDown as ChevronDownExpand, Plus, BookOpen, HelpCircle, Trash, Zap, Eye, Check, FileEdit, Clipboard, ArrowLeft, Pencil, Users, UsersRound, ExternalLink, Sparkles, Loader2, Share, Settings, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
@@ -34,6 +34,7 @@ interface CourseDetails {
 
 // Default configuration for new questions
 const defaultQuestionConfig: QuizQuestionConfig = {
+    title: "", // added to satisfy QuizQuestionConfig
     inputType: 'text',
     responseType: 'chat',
     questionType: 'objective',
@@ -669,7 +670,7 @@ export default function CreateCourse() {
         }
         setActiveQuestionId(questionId || null);
 
-        updateTaskAndQuestionIdInUrl(router, itemId, questionId);
+        updateTaskAndQuestionIdInUrl(router, itemId || null, questionId || null);
 
         // Ensure quiz items have questions property initialized
         if (item.type === 'quiz' && !item.questions) {
@@ -717,7 +718,7 @@ export default function CreateCourse() {
         // Only update URL if the questionId is different from current URL
         const currentQuestionId = searchParams.get('questionId');
         if (currentQuestionId !== questionId) {
-            updateTaskAndQuestionIdInUrl(router, activeItem?.id, questionId);
+            updateTaskAndQuestionIdInUrl(router, activeItem?.id || null, questionId || null);
         }
     };
 
@@ -2084,17 +2085,25 @@ export default function CreateCourse() {
                     {/* Display cohorts assigned to this course */}
                     {hasAnyItems() && (
                         <div className="mt-10">
-                            <div className="relative">
-                                <button
-                                    ref={publishButtonRef}
-                                    data-dropdown-toggle="true"
-                                    className="flex items-center px-6 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-[#016037] dark:hover:bg-[#017045] border-0 outline-none rounded-full transition-all cursor-pointer shadow-md"
-                                    onClick={() => openCohortSelectionDialog('publish')}
-                                >
-                                    <span className="mr-2 text-base">🚀</span>
-                                    <span>Share with learners</span>
-                                </button>
-                            </div>
+                                <div className="flex flex-col gap-3 relative">
+                                    <button
+                                        onClick={() => router.push(`/school/${schoolId}/hub?courseId=${courseId}&role=mentor`)}
+                                        className="flex items-center px-6 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/50 outline-none rounded-full transition-all cursor-pointer shadow-sm w-max"
+                                    >
+                                        <MessageSquare size={16} className="mr-2" />
+                                        <span>Course Hub</span>
+                                    </button>
+
+                                    <button
+                                        ref={publishButtonRef}
+                                        data-dropdown-toggle="true"
+                                        className="flex items-center px-6 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-[#016037] dark:hover:bg-[#017045] border-0 outline-none rounded-full transition-all cursor-pointer shadow-md w-max"
+                                        onClick={() => openCohortSelectionDialog('publish')}
+                                    >
+                                        <span className="mr-2 text-base">🚀</span>
+                                        <span>Share with learners</span>
+                                    </button>
+                                </div>
 
                             {!isLoadingCourseCohorts && courseCohorts.length > 0 && (
                                 <div className="mt-10">
