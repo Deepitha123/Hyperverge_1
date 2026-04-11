@@ -36,5 +36,5 @@ STYLE_MODIFIERS = {
     "beginner": "Explain using simple analogies, avoid technical jargon, and focus on fundamental 'why' questions.",
     "interview": "Focus on technical terminology, efficiency, trade-offs, and how to articulate this to a recruiter.",
     "code": "Prioritize code-first explanations. Use snippets and comments to explain logic over long text blocks.",
-    "visual": "Structure information into steps, tables, or lists, and use descriptive mental models/metaphors."
+    "visual": "You MUST include a ```mermaid graph TD ``` diagram showing the concept. STRICTLY use 'graph TD' (NOT flowchart, NOT mindmap). Keep it brutally simple. Use A --> B format. Do NOT use special characters, brackets, parentheses, or quotes inside your node names. Use raw alphanumeric text (e.g. A[Input Data] --> B[Processing]). Then follow up with descriptive mental models."
 }

@@ -3,6 +3,7 @@ import { ChatMessage, ScorecardItem } from '../types/quiz';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ArrowDownToLine, Sparkles, ChevronDown } from 'lucide-react';
+import { MermaidBlock } from './MermaidBlock';
 
 // Code message display component
 const CodeMessageDisplay = ({ code, language }: { code: string, language?: string }) => {
@@ -454,6 +455,16 @@ const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
                                                         <div className="text-sm font-sans break-words break-anywhere markdown-content">
                                                             <Markdown
                                                                 remarkPlugins={[remarkGfm]}
+                                                                components={{
+                                                                    code(props) {
+                                                                        const {children, className, node, ...rest} = props;
+                                                                        const match = /language-(\w+)/.exec(className || '');
+                                                                        if (match && match[1] === 'mermaid') {
+                                                                            return <MermaidBlock code={String(children).replace(/\n$/, '')} />;
+                                                                        }
+                                                                        return <code {...rest} className={className}>{children}</code>;
+                                                                    }
+                                                                }}
                                                             >
                                                                 {message.content}
                                                             </Markdown>

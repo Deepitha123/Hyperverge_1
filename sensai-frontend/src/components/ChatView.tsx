@@ -107,7 +107,7 @@ const ChatView = forwardRef<ChatViewHandle, ChatViewProps>(({
         if (style === 'beginner') stylePrompt = "Can you re-explain that like I'm a beginner? Use simple analogies and avoid complex jargon.";
         if (style === 'interview') stylePrompt = "Can you explain that with an interview focus? Emphasize terminology, trade-offs, and how to articulate it to a recruiter.";
         if (style === 'code') stylePrompt = "Can you explain that using a code-first approach? Prioritize code snippets and comments over long text blocks.";
-        if (style === 'visual') stylePrompt = "Can you re-explain that using a visual intuition? Use a descriptive mental model, metaphor, or structure the information into clear steps/tables.";
+        if (style === 'visual') stylePrompt = "Can you re-explain that using a visual intuition? Generate a simple Mermaid 'graph TD' flowchart to structure the concepts, then use a descriptive mental model.";
 
         // Re-submit with the style preference and the explicit prompt
         handleSubmitAnswer('text', style, stylePrompt);

@@ -6,6 +6,7 @@ import { PersonalKnowledge } from "@/types";
 import { getLearnerKnowledge, deleteLearnerKnowledge, getKnowledgeGraph } from "@/lib/api";
 import ReactMarkdown from "react-markdown";
 import KnowledgeGraph, { KnowledgeGraphData } from "./KnowledgeGraph";
+import { MermaidBlock } from "./MermaidBlock";
 
 interface KnowledgeHubProps {
     learnerId: string;
@@ -213,7 +214,20 @@ export default function KnowledgeHub({ learnerId }: KnowledgeHubProps) {
                                         {expandedId === item.id && (
                                             <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-4 duration-500">
                                                 <div className="prose dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300 leading-relaxed p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-800">
-                                                    <ReactMarkdown>{item.content}</ReactMarkdown>
+                                                    <ReactMarkdown
+                                                        components={{
+                                                            code(props) {
+                                                                const {children, className, node, ...rest} = props;
+                                                                const match = /language-(\w+)/.exec(className || '');
+                                                                if (match && match[1] === 'mermaid') {
+                                                                    return <MermaidBlock code={String(children).replace(/\n$/, '')} />;
+                                                                }
+                                                                return <code {...rest} className={className}>{children}</code>;
+                                                            }
+                                                        }}
+                                                    >
+                                                        {item.content}
+                                                    </ReactMarkdown>
                                                 </div>
                                             </div>
                                         )}
