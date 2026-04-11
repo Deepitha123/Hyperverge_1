@@ -8,7 +8,7 @@ chroma_data/
 venv
 data_map.txt
 faiss.index
-sqlite.db
+sqlite.db6
 experiments
 question_generator
 archive
