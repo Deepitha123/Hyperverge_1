@@ -487,3 +487,23 @@ export async function deleteLearnerKnowledge(learnerId: number, knowledgeId: num
   if (!res.ok) throw new Error(`deleteLearnerKnowledge failed: ${res.status}`);
   return res.json();
 }
+
+// ── Knowledge Graph API ──────────────────────────────────────────────────────
+
+export async function getKnowledgeGraph(userId: number) {
+  const res = await fetch(`${BACKEND()}/knowledge/graph?user_id=${userId}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`getKnowledgeGraph failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getConceptEvidence(conceptId: number, userId: number) {
+  const res = await fetch(`${BACKEND()}/knowledge/concepts/${conceptId}/evidence?user_id=${userId}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`getConceptEvidence failed: ${res.status}`);
+  return res.json();
+}
+
+export async function rebuildKnowledgeGraph(userId: number) {
+  const res = await fetch(`${BACKEND()}/knowledge/graph/rebuild?user_id=${userId}`, { method: "POST" });
+  if (!res.ok) throw new Error(`rebuildKnowledgeGraph failed: ${res.status}`);
+  return res.json();
+}

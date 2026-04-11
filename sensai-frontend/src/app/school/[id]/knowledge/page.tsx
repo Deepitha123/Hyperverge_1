@@ -30,7 +30,7 @@ export default function KnowledgePage() {
             <Header showCreateCourseButton={false} />
             
             <div className="bg-gray-50 dark:bg-[#080808] min-h-[calc(100vh-64px)]">
-                <div className="max-w-7xl mx-auto py-4 px-4">
+                <div className="max-w-[1600px] mx-auto py-4 px-4">
                     <button 
                         onClick={() => router.back()}
                         className="flex items-center gap-2 text-gray-500 hover:text-purple-600 transition-colors mb-6 group"

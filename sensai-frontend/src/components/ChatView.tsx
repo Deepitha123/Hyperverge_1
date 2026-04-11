@@ -103,18 +103,14 @@ const ChatView = forwardRef<ChatViewHandle, ChatViewProps>(({
     const handleRegenerate = (style: string) => {
         if (isAiResponding || currentChatHistory.length < 1) return;
 
-        // Find the last student message to re-issue the query
-        const lastUserMsg = [...currentChatHistory].reverse().find(m => m.sender === 'user');
-        const queryToReIssue = lastUserMsg ? lastUserMsg.content : "Please re-explain that.";
+        let stylePrompt = "Please re-explain that.";
+        if (style === 'beginner') stylePrompt = "Can you re-explain that like I'm a beginner? Use simple analogies and avoid complex jargon.";
+        if (style === 'interview') stylePrompt = "Can you explain that with an interview focus? Emphasize terminology, trade-offs, and how to articulate it to a recruiter.";
+        if (style === 'code') stylePrompt = "Can you explain that using a code-first approach? Prioritize code snippets and comments over long text blocks.";
+        if (style === 'visual') stylePrompt = "Can you re-explain that using a visual intuition? Use a descriptive mental model, metaphor, or structure the information into clear steps/tables.";
 
-        // We don't need to manually set currentAnswer here because we'll pass the content 
-        // directly through the updated handleSubmitAnswer if possible, 
-        // but the current structure of sensitized handleChatSubmit/handleSubmitAnswer 
-        // usually pulls from the local 'currentAnswer' state or a ref.
-        // To keep it simple, we'll assume the parent submission function will be updated.
-        
-        // Re-submit with the style preference and the original query
-        handleSubmitAnswer('text', style, queryToReIssue);
+        // Re-submit with the style preference and the explicit prompt
+        handleSubmitAnswer('text', style, stylePrompt);
     };
 
     // Add ref for CodeEditorView
