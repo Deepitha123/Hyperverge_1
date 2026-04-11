@@ -833,3 +833,30 @@ class ToggleLikeRequest(BaseModel):
 
 class LinkModuleRequest(BaseModel):
     module_id: int
+
+
+# ── Knowledge Hub Search models ──────────────────────────────────────────────
+
+class KnowledgeSearchRequest(BaseModel):
+    """Request model for semantic search on knowledge hub."""
+    query: str
+    course_id: Optional[int] = None
+    limit: Optional[int] = None
+
+
+class KnowledgeSearchResult(BaseModel):
+    """Single knowledge entry result from search."""
+    id: int
+    title: str
+    summary: str
+    tags: List[str]
+    similarity_score: float
+    course_id: Optional[int] = None
+    module_id: Optional[int] = None
+
+
+class KnowledgeSearchResponse(BaseModel):
+    """Response model for knowledge search."""
+    query: str
+    results: List[KnowledgeSearchResult]
+    total_results: int

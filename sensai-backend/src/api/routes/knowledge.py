@@ -10,6 +10,8 @@ from api.db.knowledge_graph import (
 from api.db.chat import get_task_chat_history_for_user
 from api.utils.knowledge_ai import summarize_chat_to_knowledge
 from api.utils.knowledge_graph_ai import extract_concepts_from_chat
+from api.utils.chroma_db import search_knowledge, add_knowledge_to_chroma, delete_knowledge_from_chroma
+from api.models import KnowledgeSearchRequest, KnowledgeSearchResponse
 import logging
 
 logger = logging.getLogger(__name__)
@@ -69,6 +71,18 @@ async def convert_chat_to_knowledge(request: ConvertChatRequest, background_task
             course_id=request.course_id,
             module_id=request.module_id,
             source_chat_history=chat_history
+        )
+
+        # Add to Chroma DB for semantic search in background
+        background_tasks.add_task(
+            add_knowledge_to_chroma,
+            learner_id=request.learner_id,
+            knowledge_id=knowledge_id,
+            title=knowledge_entry.title,
+            content=formatted_content.strip(),
+            tags=knowledge_entry.tags,
+            course_id=request.course_id,
+            module_id=request.module_id,
         )
 
         # Fire-and-forget: extract concepts for the knowledge graph in background
@@ -138,9 +152,64 @@ async def get_my_knowledge(learner_id: int):
     return await get_learner_knowledge(learner_id)
 
 @router.delete("/{learner_id}/{knowledge_id}")
-async def remove_knowledge(learner_id: int, knowledge_id: int):
+async def remove_knowledge(learner_id: int, knowledge_id: int, background_tasks: BackgroundTasks):
     """Delete a knowledge entry."""
     success = await delete_knowledge(knowledge_id, learner_id)
     if not success:
         raise HTTPException(status_code=404, detail="Knowledge entry not found")
+    
+    # Also remove from Chroma DB in background
+    background_tasks.add_task(
+        delete_knowledge_from_chroma,
+        learner_id=learner_id,
+        knowledge_id=knowledge_id,
+    )
+    
     return {"success": True}
+
+
+# ── Semantic Search Endpoint ───────────────────────────────────────────────────
+
+@router.post("/{learner_id}/search")
+async def search_learner_knowledge(learner_id: int, request: KnowledgeSearchRequest):
+    """
+    Perform semantic search on a learner's knowledge hub using Chroma DB.
+    
+    This endpoint performs semantic/similarity search on all stored knowledge entries,
+    allowing users to find relevant content using natural language queries.
+    
+    Args:
+        learner_id: ID of the learner whose knowledge to search
+        request: Search request containing query and optional filters
+    
+    Returns:
+        KnowledgeSearchResponse with matching results sorted by relevance
+    """
+    try:
+        if not request.query or not request.query.strip():
+            raise HTTPException(status_code=400, detail="Query cannot be empty")
+        
+        logger.info(f"Searching knowledge for learner {learner_id} with query: '{request.query}'")
+        
+        # Perform semantic search using Chroma DB
+        results = await search_knowledge(
+            learner_id=learner_id,
+            query=request.query.strip(),
+            n_results=request.limit,
+            course_id=request.course_id,
+        )
+        
+        logger.info(f"Found {len(results)} results for learner {learner_id}")
+        
+        # Return formatted response
+        return KnowledgeSearchResponse(
+            query=request.query,
+            results=results,
+            total_results=len(results),
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error searching knowledge for learner {learner_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
