@@ -3,6 +3,8 @@ __pycache__
 .DS_Store
 wandb
 logs
+*.sqlite3
+chroma_data/
 venv
 data_map.txt
 faiss.index

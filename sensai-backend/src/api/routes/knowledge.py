@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from api.db.knowledge import save_personal_knowledge, get_learner_knowledge, delete_knowledge
+from api.db.knowledge import save_personal_knowledge, get_learner_knowledge, delete_knowledge, migrate_existing_knowledge_to_chroma
 from api.db.knowledge_graph import (
     init_knowledge_graph_tables,
     get_user_knowledge_graph,
@@ -24,6 +24,31 @@ class ConvertChatRequest(BaseModel):
     module_id: Optional[int] = None
     task_id: Optional[int] = None  # To fetch specific chat history if history not provided
     chat_history: Optional[List[dict]] = None
+
+
+# ── Chroma DB Migration ────────────────────────────────────────────────────
+
+@router.post("/migrate-to-chroma")
+async def migrate_knowledge_to_chroma(background_tasks: BackgroundTasks):
+    """
+    One-time migration endpoint to backfill all existing knowledge entries to Chroma DB.
+    This allows semantic search to work on knowledge created before the Chroma integration.
+    
+    Use this endpoint once to enable search on existing knowledge entries.
+    """
+    try:
+        # Run migration in background to avoid timeout
+        background_tasks.add_task(migrate_existing_knowledge_to_chroma)
+        
+        return {
+            "success": True,
+            "message": "Knowledge migration to Chroma DB started in background. This may take a few moments.",
+            "hint": "You'll be able to search all existing knowledge entries once migration completes."
+        }
+    except Exception as e:
+        logger.error(f"Error starting migration: {e}")
+        raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
+
 
 @router.post("/convert")
 async def convert_chat_to_knowledge(request: ConvertChatRequest, background_tasks: BackgroundTasks):

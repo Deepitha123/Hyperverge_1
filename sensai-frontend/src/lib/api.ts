@@ -488,6 +488,36 @@ export async function deleteLearnerKnowledge(learnerId: number, knowledgeId: num
   return res.json();
 }
 
+export async function searchKnowledge(learnerId: number, query: string, courseId?: number, limit?: number) {
+  const searchParams = new URLSearchParams();
+  searchParams.append("query", query);
+  if (courseId) searchParams.append("course_id", String(courseId));
+  if (limit) searchParams.append("limit", String(limit));
+
+  const res = await fetch(`${BACKEND()}/knowledge/${learnerId}/search`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query,
+      course_id: courseId,
+      limit,
+    }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`searchKnowledge failed: ${res.status}`);
+  return res.json();
+}
+
+export async function migrateKnowledgeToChroma() {
+  const res = await fetch(`${BACKEND()}/knowledge/migrate-to-chroma`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`migrateKnowledgeToChroma failed: ${res.status}`);
+  return res.json();
+}
+
 // ── Knowledge Graph API ──────────────────────────────────────────────────────
 
 export async function getKnowledgeGraph(userId: number) {

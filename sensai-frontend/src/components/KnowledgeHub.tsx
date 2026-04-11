@@ -1,12 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Brain, Trash2, ChevronDown, ChevronUp, BookOpen, Search, Calendar, Tag, Atom, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Brain, Trash2, ChevronDown, ChevronUp, BookOpen, Search, Calendar, Tag, Atom, PanelRightClose, PanelRightOpen, Zap, AlertCircle, CheckCircle } from "lucide-react";
 import { PersonalKnowledge } from "@/types";
-import { getLearnerKnowledge, deleteLearnerKnowledge, getKnowledgeGraph } from "@/lib/api";
+import { getLearnerKnowledge, deleteLearnerKnowledge, getKnowledgeGraph, searchKnowledge, migrateKnowledgeToChroma } from "@/lib/api";
 import ReactMarkdown from "react-markdown";
 import KnowledgeGraph, { KnowledgeGraphData } from "./KnowledgeGraph";
 import { MermaidBlock } from "./MermaidBlock";
+
+interface SearchResult {
+    id: number;
+    title: string;
+    summary: string;
+    tags: string[];
+    similarity_score: number;
+    course_id?: number;
+    module_id?: number;
+}
 
 interface KnowledgeHubProps {
     learnerId: string;
@@ -17,10 +27,15 @@ export default function KnowledgeHub({ learnerId }: KnowledgeHubProps) {
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false);
     const [graphData, setGraphData] = useState<KnowledgeGraphData | null>(null);
     const [graphLoading, setGraphLoading] = useState(true);
     const [showGraph, setShowGraph] = useState(true);
     const [isRebuilding, setIsRebuilding] = useState(false);
+    const [migrationStatus, setMigrationStatus] = useState<"idle" | "migrating" | "completed" | "error">("idle");
+    const [showMigrationBanner, setShowMigrationBanner] = useState(false);
 
 
     // Fetch knowledge entries
@@ -79,16 +94,66 @@ export default function KnowledgeHub({ learnerId }: KnowledgeHubProps) {
         try {
             await deleteLearnerKnowledge(Number(learnerId), Number(knowledgeId));
             setKnowledge(prev => prev.filter(k => k.id !== knowledgeId));
+            // If we're in search mode and delete a result, refresh search
+            if (hasSearched) {
+                await handleSearch();
+            }
         } catch (error) {
             console.error("Error deleting knowledge:", error);
         }
     };
 
-    const filteredKnowledge = knowledge.filter(k =>
-        k.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        k.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        k.content.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const handleSearch = async () => {
+        if (!searchQuery.trim()) {
+            setSearchResults([]);
+            setHasSearched(false);
+            return;
+        }
+
+        setIsSearching(true);
+        try {
+            const response = await searchKnowledge(Number(learnerId), searchQuery.trim());
+            setSearchResults(response.results || []);
+            setHasSearched(true);
+            setExpandedId(null); // Reset expanded item
+            
+            // If no results found but knowledge exists, suggest migration
+            if ((response.results || []).length === 0 && knowledge.length > 0) {
+                setShowMigrationBanner(true);
+            } else {
+                setShowMigrationBanner(false);
+            }
+        } catch (error) {
+            console.error("Error searching knowledge:", error);
+            setSearchResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter") {
+            handleSearch();
+        }
+    };
+
+    const handleMigration = async () => {
+        setMigrationStatus("migrating");
+        try {
+            await migrateKnowledgeToChroma();
+            setMigrationStatus("completed");
+            setShowMigrationBanner(false);
+            // Automatically retry search after migration
+            if (searchQuery.trim()) {
+                await handleSearch();
+            }
+        } catch (error) {
+            console.error("Error migrating knowledge:", error);
+            setMigrationStatus("error");
+        }
+    };
+
+    const displayedKnowledge = hasSearched ? searchResults : knowledge;
 
     if (loading) {
         return (
@@ -112,18 +177,54 @@ export default function KnowledgeHub({ learnerId }: KnowledgeHubProps) {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="relative w-full md:w-72">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Search your notes..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0D0D0D] focus:ring-2 focus:ring-purple-500 outline-none transition-all"
-                        />
+                <div className="flex flex-col gap-3 w-full md:w-auto">
+                    <div className="flex items-center gap-2">
+                        <div className="relative flex-1 md:w-72">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                            <input
+                                type="text"
+                                placeholder="Search your knowledge with semantic search..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyPress={handleKeyPress}
+                                className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0D0D0D] focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                            />
+                        </div>
+
+                        <button
+                            onClick={handleSearch}
+                            disabled={isSearching || !searchQuery.trim()}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:shadow-lg hover:shadow-purple-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                        >
+                            <Zap size={18} />
+                            <span className="hidden sm:inline">
+                                {isSearching ? "Searching..." : "Search"}
+                            </span>
+                        </button>
+
+                        {hasSearched && (
+                            <button
+                                onClick={() => {
+                                    setSearchQuery("");
+                                    setSearchResults([]);
+                                    setHasSearched(false);
+                                    setExpandedId(null);
+                                }}
+                                className="px-3 py-2.5 rounded-2xl border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700 transition-all"
+                            >
+                                Clear
+                            </button>
+                        )}
                     </div>
 
+                    {hasSearched && (
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                            Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "{searchQuery}"
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-3">
                     {/* Toggle graph panel */}
                     <button
                         onClick={() => setShowGraph(!showGraph)}
@@ -146,94 +247,144 @@ export default function KnowledgeHub({ learnerId }: KnowledgeHubProps) {
             <div className={`flex gap-6 ${showGraph ? "" : ""}`}>
                 {/* Left: Knowledge Notes */}
                 <div className={`transition-all duration-300 ${showGraph ? "w-full lg:w-1/2" : "w-full"}`}>
-                    {filteredKnowledge.length === 0 ? (
+                    {/* Migration Banner */}
+                    {showMigrationBanner && knowledge.length > 0 && (
+                        <div className="mb-6 p-4 rounded-2xl border border-yellow-200 dark:border-yellow-900/30 bg-yellow-50 dark:bg-yellow-900/10 flex items-start gap-4">
+                            <AlertCircle className="text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" size={20} />
+                            <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-yellow-900 dark:text-yellow-200 mb-1">Existing Knowledge Not Searchable Yet</h3>
+                                <p className="text-sm text-yellow-800 dark:text-yellow-300 mb-3">
+                                    Your knowledge entries were created before the search feature. Click below to enable semantic search on all {knowledge.length} entries.
+                                </p>
+                                <button
+                                    onClick={handleMigration}
+                                    disabled={migrationStatus === "migrating"}
+                                    className="px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    {migrationStatus === "migrating" ? "Migrating..." : "Enable Search Now"}
+                                </button>
+                            </div>
+                            <button
+                                onClick={() => setShowMigrationBanner(false)}
+                                className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-200 flex-shrink-0"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    )}
+
+                    {displayedKnowledge.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-[#0D0D0D] rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800">
                             <div className="w-20 h-20 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center mb-6">
                                 <Brain className="text-purple-600 dark:text-purple-400" size={40} />
                             </div>
-                            <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Empty Library</h3>
+                            <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
+                                {hasSearched ? "No Results Found" : "Empty Library"}
+                            </h3>
                             <p className="text-gray-500 dark:text-gray-400 max-w-sm text-center">
-                                You haven&apos;t added any chat insights to your knowledge base yet.
-                                Start by clicking &quot;Convert to Knowledge&quot; in any discussion.
+                                {hasSearched
+                                    ? `No knowledge entries match "${searchQuery}". Try a different search query.`
+                                    : "You haven't added any chat insights to your knowledge base yet. Start by clicking \"Convert to Knowledge\" in any discussion."
+                                }
                             </p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 gap-5">
-                            {filteredKnowledge.map((item) => (
-                                <div
-                                    key={item.id}
-                                    className={`group relative overflow-hidden transition-all duration-300 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0D0D0D] hover:shadow-xl hover:shadow-purple-500/5 ${
-                                        expandedId === item.id ? "ring-2 ring-purple-500/20" : ""
-                                    }`}
-                                >
-                                    <div className="p-5">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <span className="flex items-center gap-1 px-2.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                                                        <BookOpen size={10} />
-                                                        Insight
-                                                    </span>
-                                                    <span className="flex items-center gap-1 text-gray-400 text-[10px]">
-                                                        <Calendar size={10} />
-                                                        {new Date(item.created_at.endsWith("Z") ? item.created_at : item.created_at + "Z").toLocaleDateString()}
-                                                    </span>
-                                                </div>
-                                                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 leading-tight group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">
-                                                    {item.title}
-                                                </h2>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {item.tags.slice(0, 4).map(tag => (
-                                                        <span key={tag} className="flex items-center gap-0.5 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg text-[10px] font-medium">
-                                                            <Tag size={8} />
-                                                            {tag}
+                            {displayedKnowledge.map((item) => {
+                                const itemId = String((item as any).id);
+                                const isSearchResult = hasSearched;
+                                const title = isSearchResult ? (item as SearchResult).title : (item as PersonalKnowledge).title;
+                                const content = isSearchResult ? (item as SearchResult).summary : (item as PersonalKnowledge).content;
+                                const tags = isSearchResult ? (item as SearchResult).tags : (item as PersonalKnowledge).tags;
+                                const similarityScore = isSearchResult ? (item as SearchResult).similarity_score : undefined;
+                                const createdAt = (item as PersonalKnowledge).created_at;
+
+                                return (
+                                    <div
+                                        key={itemId}
+                                        className={`group relative overflow-hidden transition-all duration-300 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0D0D0D] hover:shadow-xl hover:shadow-purple-500/5 ${
+                                            expandedId === itemId ? "ring-2 ring-purple-500/20" : ""
+                                        }`}
+                                    >
+                                        <div className="p-5">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <span className="flex items-center gap-1 px-2.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                                                            <BookOpen size={10} />
+                                                            {isSearchResult ? "Match" : "Insight"}
                                                         </span>
-                                                    ))}
-                                                    {item.tags.length > 4 && (
-                                                        <span className="px-2 py-0.5 text-[10px] text-gray-400">+{item.tags.length - 4}</span>
+                                                        {isSearchResult && similarityScore && (
+                                                            <span className="flex items-center gap-1 px-2.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                                                                <Zap size={10} />
+                                                                {(similarityScore * 100).toFixed(0)}% Match
+                                                            </span>
+                                                        )}
+                                                        {createdAt && (
+                                                            <span className="flex items-center gap-1 text-gray-400 text-[10px]">
+                                                                <Calendar size={10} />
+                                                                {new Date(createdAt.endsWith("Z") ? createdAt : createdAt + "Z").toLocaleDateString()}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 leading-tight group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">
+                                                        {title}
+                                                    </h2>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {tags.slice(0, 4).map(tag => (
+                                                            <span key={tag} className="flex items-center gap-0.5 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg text-[10px] font-medium">
+                                                                <Tag size={8} />
+                                                                {tag}
+                                                            </span>
+                                                        ))}
+                                                        {tags.length > 4 && (
+                                                            <span className="px-2 py-0.5 text-[10px] text-gray-400">+{tags.length - 4}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                    {!isSearchResult && (
+                                                        <button
+                                                            onClick={() => handleDelete(itemId)}
+                                                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
                                                     )}
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                <button
-                                                    onClick={() => handleDelete(item.id)}
-                                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                                                    className="flex items-center justify-center w-9 h-9 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-purple-600 hover:text-white transition-all shadow-sm cursor-pointer"
-                                                >
-                                                    {expandedId === item.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {expandedId === item.id && (
-                                            <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-4 duration-500">
-                                                <div className="prose dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300 leading-relaxed p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-800">
-                                                    <ReactMarkdown
-                                                        components={{
-                                                            code(props) {
-                                                                const {children, className, node, ...rest} = props;
-                                                                const match = /language-(\w+)/.exec(className || '');
-                                                                if (match && match[1] === 'mermaid') {
-                                                                    return <MermaidBlock code={String(children).replace(/\n$/, '')} />;
-                                                                }
-                                                                return <code {...rest} className={className}>{children}</code>;
-                                                            }
-                                                        }}
+                                                    <button
+                                                        onClick={() => setExpandedId(expandedId === itemId ? null : itemId)}
+                                                        className="flex items-center justify-center w-9 h-9 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-purple-600 hover:text-white transition-all shadow-sm cursor-pointer"
                                                     >
-                                                        {item.content}
-                                                    </ReactMarkdown>
+                                                        {expandedId === itemId ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                                                    </button>
                                                 </div>
                                             </div>
-                                        )}
+
+                                            {expandedId === itemId && (
+                                                <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-4 duration-500">
+                                                    <div className="prose dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300 leading-relaxed p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-800">
+                                                        <ReactMarkdown
+                                                            components={{
+                                                                code(props) {
+                                                                    const {children, className, node, ...rest} = props;
+                                                                    const match = /language-(\w+)/.exec(className || '');
+                                                                    if (match && match[1] === 'mermaid') {
+                                                                        return <MermaidBlock code={String(children).replace(/\n$/, '')} />;
+                                                                    }
+                                                                    return <code {...rest} className={className}>{children}</code>;
+                                                                }
+                                                            }}
+                                                        >
+                                                            {content}
+                                                        </ReactMarkdown>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>

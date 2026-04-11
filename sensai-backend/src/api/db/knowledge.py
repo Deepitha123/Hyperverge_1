@@ -98,3 +98,72 @@ async def delete_knowledge(knowledge_id: int, learner_id: int) -> bool:
         deleted = cursor.rowcount > 0
         await conn.commit()
         return deleted
+
+
+async def migrate_existing_knowledge_to_chroma() -> dict:
+    """
+    Backfill all existing knowledge entries to Chroma DB.
+    This is a one-time migration for entries created before Chroma integration.
+    Returns stats on how many were migrated.
+    """
+    from api.utils.chroma_db import add_knowledge_to_chroma
+    from api.utils.logging import logger
+    
+    stats = {
+        "total_migrated": 0,
+        "success": 0,
+        "failed": 0,
+        "errors": []
+    }
+    
+    try:
+        async with get_new_db_connection() as conn:
+            cursor = await conn.cursor()
+            
+            # Get all knowledge entries
+            await cursor.execute(
+                """
+                SELECT id, learner_id, course_id, module_id, title, content, tags
+                FROM personal_knowledge
+                ORDER BY learner_id, id
+                """
+            )
+            rows = await cursor.fetchall()
+            stats["total_migrated"] = len(rows)
+            
+            logger.info(f"Starting migration of {len(rows)} knowledge entries to Chroma DB")
+            
+            for row in rows:
+                knowledge_id, learner_id, course_id, module_id, title, content, tags_json = row
+                try:
+                    tags = json.loads(tags_json) if tags_json else []
+                    
+                    success = await add_knowledge_to_chroma(
+                        learner_id=learner_id,
+                        knowledge_id=knowledge_id,
+                        title=title,
+                        content=content,
+                        tags=tags,
+                        course_id=course_id,
+                        module_id=module_id,
+                    )
+                    
+                    if success:
+                        stats["success"] += 1
+                    else:
+                        stats["failed"] += 1
+                        stats["errors"].append(f"Knowledge ID {knowledge_id}: Failed to add to Chroma")
+                        
+                except Exception as e:
+                    stats["failed"] += 1
+                    error_msg = f"Knowledge ID {knowledge_id}: {str(e)}"
+                    stats["errors"].append(error_msg)
+                    logger.error(error_msg)
+            
+            logger.info(f"Migration complete - Success: {stats['success']}, Failed: {stats['failed']}")
+            
+    except Exception as e:
+        logger.error(f"Error during knowledge migration: {e}")
+        stats["errors"].append(f"Migration failed: {str(e)}")
+    
+    return stats
